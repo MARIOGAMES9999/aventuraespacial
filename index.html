@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aventura Espacial</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      display: block;
+    }
+    /* Se oculta el botón de pausa por defecto */
+    #pauseButton {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+      z-index: 2;
+      display: none;
+    }
+    /* Pantallas emergentes */
+    .screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      z-index: 3;
+      background: rgba(0,0,0,0.8);
+      padding: 20px;
+      border: 2px solid white;
+      display: none;
+    }
+    /* Ayuda: para móviles con scroll */
+    #helpScreen {
+      width: 90%;
+      max-height: 80%;
+      overflow-y: auto;
+    }
+    .screen button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .menu-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    /* Opciones de personalización */
+    .rocket-option, .trail-color-option, .trail-shape-option {
+      cursor: pointer;
+      margin: 10px;
+      border: 2px solid transparent;
+    }
+    .rocket-option.selected, .trail-color-option.selected, .trail-shape-option.selected {
+      border-color: yellow;
+    }
+    
+    /* Media Query para mejorar la visualización en móviles del modo Personalizar */
+    @media (max-width: 768px) {
+      #customizationScreen {
+        width: 90%;
+        max-height: 80%;
+        overflow-y: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <!-- Botón de pausa con nueva imagen -->
+  <img id="pauseButton" src="https://static.vecteezy.com/system/resources/previews/027/508/193/non_2x/pause-button-icon-on-transparent-background-stop-icon-button-free-png.png" alt="Pause Button" width="30" height="30">
+
+  <!-- Menú Principal -->
+  <div id="mainMenu" class="screen" style="display: block;">
+    <h1>Aventura Espacial</h1>
+    <div class="menu-buttons">
+      <button id="helpButton">Ayuda</button>
+      <button id="playButton">Jugar</button>
+      <button id="levelButton">Jugar con niveles</button>
+      <button id="customButton">Personalizar</button>
+      <button id="configButton">Configuración</button>
+    </div>
+    <p>Presiona ENTER para comenzar</p>
+  </div>
+
+  <!-- Pantalla de Ayuda -->
+  <div id="helpScreen" class="screen">
+    <h2>Cómo jugar</h2>
+    <p>
+      Mueve el cohete usando las flechas, o arrastrando en móviles (o usando la rueda del ratón).<br>
+      Al cambiar la dirección vertical:<br>
+      • Si te mueves hacia abajo, el cohete gira 90º a la derecha.<br>
+      • Si te mueves hacia arriba, se muestra la imagen original.
+    </p>
+    <p>Funciones del juego:</p>
+    <ul style="text-align: left;">
+      <li><strong>Pausa:</strong> Usa el botón de pausa o la tecla "p".</li>
+      <li><strong>Dificultad progresiva:</strong> Los meteoritos se aceleran con el tiempo.</li>
+      <li><strong>Modo niveles:</strong> Sobrevive hasta alcanzar el tiempo objetivo.</li>
+      <li><strong>Personalización:</strong> Cambia el diseño de tu cohete y de la estela.</li>
+    </ul>
+    <button id="closeHelp">Cerrar</button>
+  </div>
+
+  <!-- Pantalla de Configuración -->
+  <div id="configScreen" class="screen">
+    <h2>Configuración</h2>
+    <div class="menu-buttons">
+      <button id="toggleRecord">Guardar Récord: ON</button>
+      <button id="toggleFixedRotation">Fijar rotación del cohete: OFF</button>
+      <button id="toggleMusic">Activar música: ON</button>
+    </div>
+    <button id="configBackButton">Volver</button>
+  </div>
+
+  <!-- Pantalla de Game Over -->
+  <div id="gameOverMenu" class="screen">
+    <h1>¡Game Over!</h1>
+    <p id="finalScore"></p>
+    <div class="menu-buttons">
+      <button id="menuButton">Volver al menú principal</button>
+      <button id="retryButton">Volver a intentar</button>
+    </div>
+  </div>
+
+  <!-- Menú para Jugar con Niveles -->
+  <div id="levelMenu" class="screen">
+    <h2>Jugar con niveles</h2>
+    <p id="levelInfo"></p>
+    <div class="menu-buttons">
+      <button id="levelBackButton">Volver</button>
+      <button id="levelPlayButton">Jugar</button>
+    </div>
+  </div>
+
+  <!-- Pantalla de Victoria en Modo Niveles -->
+  <div id="winMenu" class="screen">
+    <h1>¡FELICIDADES!</h1>
+    <p id="winMessage"></p>
+    <div class="menu-buttons">
+      <button id="winMenuButton">Menú principal</button>
+      <button id="nextLevelButton">Siguiente nivel</button>
+    </div>
+  </div>
+
+  <!-- Pantalla de Personalización -->
+  <div id="customizationScreen" class="screen">
+    <h2>Personaliza tu cohete</h2>
+    <p>Elige el diseño de tu cohete:</p>
+    <div class="menu-buttons">
+      <img class="rocket-option" data-src="https://cdn-icons-png.flaticon.com/512/3655/3655645.png" src="https://cdn-icons-png.flaticon.com/512/3655/3655645.png" alt="Opción 1" width="50" height="50">
+      <img class="rocket-option" data-src="https://images.vexels.com/content/145821/preview/rocket-illustration-rocket-illustration-6e1e4f.png" src="https://images.vexels.com/content/145821/preview/rocket-illustration-rocket-illustration-6e1e4f.png" alt="Opción 2" width="50" height="50">
+      <img class="rocket-option" data-src="https://images.vexels.com/media/users/3/152644/isolated/preview/8c827f1a2c4a228c86189825a8e625ed-icono-de-dibujos-animados-de-cohete-espacial.png" src="https://images.vexels.com/media/users/3/152644/isolated/preview/8c827f1a2c4a228c86189825a8e625ed-icono-de-dibujos-animados-de-cohete-espacial.png" alt="Opción 3" width="50" height="50">
+      <img class="rocket-option" data-src="https://static.vecteezy.com/system/resources/previews/039/324/430/non_2x/startup-rocket-3d-render-free-png.png" src="https://static.vecteezy.com/system/resources/previews/039/324/430/non_2x/startup-rocket-3d-render-free-png.png" alt="Opción 4" width="50" height="50">
+    </div>
+    <hr>
+    <h2>Personaliza tu estela</h2>
+    <p>Color de la estela:</p>
+    <div class="menu-buttons" id="trailColorOptions">
+      <button class="trail-color-option" data-color="red" style="background:red; color:white;">Rojo</button>
+      <button class="trail-color-option" data-color="lightblue" style="background:lightblue; color:black;">Azul</button>
+      <button class="trail-color-option" data-color="white" style="background:white; color:black;">Blanco</button>
+      <button class="trail-color-option" data-color="violet" style="background:purple; color:white;">Violeta</button>
+      <button class="trail-color-option" data-color="yellow" style="background:yellow; color:black;">Amarillo</button>
+    </div>
+    <p>Forma de la estela:</p>
+    <div class="menu-buttons" id="trailShapeOptions">
+      <button class="trail-shape-option" data-shape="star">Estrella</button>
+      <button class="trail-shape-option" data-shape="heart">Corazón</button>
+      <button class="trail-shape-option" data-shape="triangle">Triángulo</button>
+      <button class="trail-shape-option" data-shape="circle">Círculo</button>
+    </div>
+    <button id="customBackButton">Volver</button>
+  </div>
+
+  <script>
+    // Inicializar configuración desde localStorage
+    let config = {
+      saveRecord: localStorage.getItem('config_saveRecord') === null
+        ? true
+        : localStorage.getItem('config_saveRecord') === "true",
+      fixedRotation: localStorage.getItem('config_fixedRotation') === null
+        ? false
+        : localStorage.getItem('config_fixedRotation') === "true",
+      musicActive: localStorage.getItem('config_musicActive') === null
+        ? true
+        : localStorage.getItem('config_musicActive') === "true"
+    };
+
+    // Personalización de estela: color y forma
+    let trailColor = localStorage.getItem('trailColor') || 'lightblue';
+    let trailShape = localStorage.getItem('trailShape') || 'circle';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('toggleRecord').textContent =
+        config.saveRecord ? "Guardar Récord: ON" : "Guardar Récord: OFF";
+      document.getElementById('toggleFixedRotation').textContent =
+        config.fixedRotation
+          ? "Fijar rotación del cohete: ON"
+          : "Fijar rotación del cohete: OFF";
+      document.getElementById('toggleMusic').textContent =
+        config.musicActive ? "Activar música: ON" : "Activar música: OFF";
+
+      // Marcar opciones de estela guardadas
+      document.querySelectorAll('.trail-color-option').forEach(opt => {
+        if (opt.dataset.color === trailColor) opt.classList.add('selected');
+      });
+      document.querySelectorAll('.trail-shape-option').forEach(opt => {
+        if (opt.dataset.shape === trailShape) opt.classList.add('selected');
+      });
+    });
+
+    /* ================= Variables Globales ================= */
+    const canvas = document.getElementById('gameCanvas'),
+          ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let rocketAngle = 0;
+    let gameState = 'start',
+        gameMode = 'score',
+        score = 0,
+        highScore = Number(localStorage.getItem('highScore')) || 0,
+        recordBeaten = false,
+        currentLevel = Number(localStorage.getItem('currentLevel')) || 1,
+        targetTime = 10,
+        levelStartTime = null;
+
+    // Corazones extra y su icono
+    let extraHearts = 0;
+    const heartIcon = new Image();
+    heartIcon.src = "https://cdn-icons-png.flaticon.com/512/833/833472.png";
+
+    /* ================= Imágenes y sonidos ================= */
+    const astronautImg = new Image();
+    astronautImg.src =
+      localStorage.getItem('rocketSkin') ||
+      "https://cdn-icons-png.flaticon.com/512/3655/3655645.png";
+
+    const meteoriteImages = [
+      "https://images.vexels.com/media/users/3/203018/isolated/preview/66f32f88385888d8827e7da298df6b77-ilustracion-de-roca-asteroide.png",
+      "https://images.vexels.com/media/users/3/203017/isolated/preview/a6684989a6b4564caa310397c9b120af-ilustracion-de-la-orbita-de-un-asteroide.png",
+      "https://images.vexels.com/media/users/3/203377/isolated/preview/0aec84665568ad2cda7a4a457eb27410-ilustracion-de-asteroide-de-roca.png",
+      "https://images.vexels.com/media/users/3/205156/isolated/preview/97f52f15ce49dcd73b9678708f28cabf-ilustracion-de-la-orbita-de-la-roca-del-asteroide.png"
+    ];
+
+    const shieldImage = new Image();
+    shieldImage.src = "https://cdn-icons-png.flaticon.com/512/148/148836.png";
+
+    const backgroundMusic = new Audio(
+      'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'
+    );
+    backgroundMusic.loop = true;
+    backgroundMusic.volume = 0.2;
+
+    const collisionSound = new Audio(
+      'https://www.soundjay.com/misc/sounds/fail-buzzer-01.mp3'
+    );
+    collisionSound.volume = 0.5;
+
+    const victorySound = new Audio(
+      'https://www.soundjay.com/button/sounds/button-3.mp3'
+    );
+    victorySound.volume = 0.7;
+
+    function playVictorySound() {
+      if (config.musicActive) {
+        victorySound.currentTime = 0;
+        victorySound.play();
+        setTimeout(() => {
+          victorySound.pause();
+          victorySound.currentTime = 0;
+        }, 2000);
+      }
+    }
+
+    // AudioContext para asegurar autoplay en desktop
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const audioCtx = new AudioContext();
+    const track = audioCtx.createMediaElementSource(backgroundMusic);
+    track.connect(audioCtx.destination);
+    document.addEventListener('click', function resumeAudio() {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      document.removeEventListener('click', resumeAudio);
+    });
+
+    /* ================= Estado del astronauta ================= */
+    const astronaut = {
+      x: 100,
+      y: canvas.height / 2,
+      size: 30,
+      speed: 5,
+      shielded: false
+    };
+
+    let stars = [],
+        asteroids = [],
+        powerups = [],
+        particles = [];
+
+    createStars(100);
+
+    /* ================= Controles ================= */
+    const keys = {};
+    let dragging = false, dragOffset = 0;
+
+    canvas.addEventListener('touchstart', e => {
+      if (gameState !== 'playing') return;
+      dragging = true;
+      dragOffset = astronaut.y - e.touches[0].clientY;
+    });
+    canvas.addEventListener('touchmove', e => {
+      if (!dragging || gameState !== 'playing') return;
+      let newY = e.touches[0].clientY + dragOffset;
+      rocketAngle = newY > astronaut.y ? Math.PI/2 : 0;
+      astronaut.y = Math.max(astronaut.size, Math.min(newY, canvas.height-astronaut.size));
+    });
+    canvas.addEventListener('touchend', () => { dragging = false; });
+
+    canvas.addEventListener('wheel', e => {
+      if (gameState!=='playing') return;
+      rocketAngle = e.deltaY>0 ? Math.PI/2 : 0;
+      astronaut.y = Math.max(astronaut.size, Math.min(astronaut.y + e.deltaY*0.1, canvas.height-astronaut.size));
+    });
+
+    document.addEventListener('keydown', e => {
+      if (gameState==='start' && e.key==='Enter') startGame();
+      else if (gameState==='gameover' && e.key==='Enter') startGame();
+      else if (gameState==='playing') {
+        if (['ArrowUp','w','W'].includes(e.key)) {
+          rocketAngle=0; keys['ArrowUp']=true;
+        }
+        if (['ArrowDown','s','S'].includes(e.key)) {
+          rocketAngle=Math.PI/2; keys['ArrowDown']=true;
+        }
+        if (['p','P'].includes(e.key)) togglePause();
+      } else if (gameState==='paused' && ['p','P'].includes(e.key)) {
+        togglePause();
+      }
+      updateUI();
+    });
+    document.addEventListener('keyup', e => {
+      if (['ArrowUp','w','W'].includes(e.key)) keys['ArrowUp']=false;
+      if (['ArrowDown','s','S'].includes(e.key)) keys['ArrowDown']=false;
+    });
+
+    /* ================= Funciones de Juego ================= */
+    function createStars(n) {
+      stars=[];
+      for(let i=0;i<n;i++){
+        stars.push({
+          x: Math.random()*canvas.width,
+          y: Math.random()*canvas.height,
+          radius: Math.random()*2,
+          speed: Math.random()*0.5+0.2
+        });
+      }
+    }
+    function createAsteroid() {
+      const size = Math.random()*30+10;
+      const y = Math.random()*(canvas.height-size*2)+size;
+      const img = new Image();
+      img.src = meteoriteImages[Math.floor(Math.random()*meteoriteImages.length)];
+      asteroids.push({ x: canvas.width+size, y, size, img });
+    }
+    function createPowerup() {
+      const size=20;
+      const y=Math.random()*(canvas.height-size*2)+size;
+      powerups.push({ x: canvas.width+size, y, size, type:'shield'});
+    }
+
+    function updatePowerups(speed) {
+      for (let i=powerups.length-1; i>=0; i--) {
+        const p=powerups[i];
+        p.x -= speed;
+        const dx=astronaut.x-p.x, dy=astronaut.y-p.y;
+        const dist=Math.hypot(dx,dy);
+        if (dist<astronaut.size*0.7+p.size) {
+          if (astronaut.shielded) {
+            if (extraHearts<5) extraHearts++;
+          } else {
+            astronaut.shielded=true;
+          }
+          if (config.musicActive) new Audio('https://www.soundjay.com/button/sounds/button-09.mp3').play();
+          powerups.splice(i,1);
+        } else if (p.x+p.size<0) powerups.splice(i,1);
+      }
+    }
+
+    function createTrailParticle(x,y) {
+      particles.push({
+        x,y,
+        vx:(Math.random()-0.5)*0.5,
+        vy:(Math.random()-0.5)*0.5,
+        life:30,
+        color:trailColor,
+        shape:trailShape
+      });
+    }
+    function createExplosion(x,y) {
+      for(let i=0;i<20;i++){
+        const angle=Math.random()*Math.PI*2,
+              speed=Math.random()*3+2;
+        particles.push({
+          x,y,
+          vx:Math.cos(angle)*speed,
+          vy:Math.sin(angle)*speed,
+          life:60,
+          color:'orange',
+          shape:'circle'
+        });
+      }
+    }
+    function updateParticles() {
+      for(let i=particles.length-1;i>=0;i--){
+        const p=particles[i];
+        p.x+=p.vx; p.y+=p.vy; p.life--;
+        if(p.life<=0) particles.splice(i,1);
+      }
+    }
+    function drawParticles() {
+      for(const p of particles){
+        ctx.globalAlpha=Math.max(p.life/60,0);
+        ctx.fillStyle=p.color;
+        switch(p.shape){
+          case 'triangle':
+            ctx.beginPath();
+            ctx.moveTo(p.x,p.y-3);
+            ctx.lineTo(p.x-3,p.y+3);
+            ctx.lineTo(p.x+3,p.y+3);
+            ctx.closePath();
+            ctx.fill();
+            break;
+          case 'star':
+            drawStar(ctx,p.x,p.y,3,5,1.5);
+            break;
+          case 'heart':
+            drawHeart(ctx,p.x,p.y,3);
+            break;
+          default:
+            ctx.beginPath();
+            ctx.arc(p.x,p.y,3,0,Math.PI*2);
+            ctx.fill();
+        }
+      }
+      ctx.globalAlpha=1;
+    }
+    function drawStar(ctx,cx,cy,outerR,points,innerF){
+      ctx.beginPath();
+      const angle=Math.PI/points;
+      for(let i=0;i<2*points;i++){
+        const r=(i%2?outerR*innerF:outerR),
+              a=i*angle,
+              x=cx+Math.cos(a)*r,
+              y=cy+Math.sin(a)*r;
+        i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+    function drawHeart(ctx,x,y,size){
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+      ctx.bezierCurveTo(x,y-size,x-size,y-size,x-size,y);
+      ctx.bezierCurveTo(x-size,y+size,x,y+size*1.5,x,y+size*2);
+      ctx.bezierCurveTo(x,y+size*1.5,x+size,y+size,x+size,y);
+      ctx.bezierCurveTo(x+size,y-size,x,y-size,x,y);
+      ctx.fill();
+    }
+
+    function formatTime(sec){
+      const m=Math.floor(sec/60), s=Math.floor(sec%60), c=Math.floor((sec%1)*100);
+      return `${m<10?"0":""}${m}:${s<10?"0":""}${s}:${c<10?"0":""}${c}`;
+    }
+
+    function resetGame(){
+      score=0; recordBeaten=false;
+      asteroids=[]; powerups=[]; particles=[];
+      astronaut.y=canvas.height/2; astronaut.shielded=false;
+      keys['ArrowUp']=keys['ArrowDown']=false;
+      extraHearts=0;
+      if(gameMode==='niveles') levelStartTime=Date.now();
+    }
+
+    function startGame(){
+      resetGame();
+      gameState='playing';
+      document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+      if(config.musicActive){
+        audioCtx.resume().then(()=> backgroundMusic.play().catch(()=>{}));
+      } else {
+        backgroundMusic.pause(); backgroundMusic.currentTime=0;
+      }
+      if(gameMode==='niveles') levelStartTime=Date.now();
+      updateUI();
+    }
+
+    function gameOver(){
+      if(config.musicActive) collisionSound.play();
+      gameState='gameover';
+      backgroundMusic.pause();
+      if(gameMode==='score'){
+        if(score>highScore && config.saveRecord){
+          highScore=score;
+          localStorage.setItem('highScore', highScore);
+        }
+        document.getElementById('finalScore').textContent =
+          `Puntuación: ${score}${config.saveRecord? ' | Mejor: '+highScore:''}`;
+      } else {
+        document.getElementById('finalScore').textContent='¡Game Over!';
+      }
+      document.getElementById('gameOverMenu').style.display='block';
+      updateUI();
+    }
+
+    function winLevel(){
+      const passed=currentLevel;
+      currentLevel++;
+      localStorage.setItem('currentLevel',currentLevel);
+      gameState='win';
+      backgroundMusic.pause();
+      document.getElementById('winMessage').textContent =
+        `¡FELICIDADES! Has conseguido pasarte el nivel ${passed}`;
+      document.getElementById('winMenu').style.display='block';
+      updateUI();
+    }
+
+    function togglePause(){
+      if(gameState==='playing'){
+        gameState='paused';
+        backgroundMusic.pause();
+      } else if(gameState==='paused'){
+        gameState='playing';
+        if(config.musicActive) backgroundMusic.play();
+      }
+      updateUI();
+    }
+
+    function update(){
+      if(gameState==='playing'){
+        if(keys['ArrowUp'] && astronaut.y>astronaut.size){
+          rocketAngle=0; astronaut.y-=astronaut.speed;
+        }
+        if(keys['ArrowDown'] && astronaut.y<canvas.height-astronaut.size){
+          rocketAngle=Math.PI/2; astronaut.y+=astronaut.speed;
+        }
+        if(config.fixedRotation) rocketAngle=0;
+
+        if(gameMode==='score'){
+          score++;
+          if(score>highScore && !recordBeaten && config.saveRecord){
+            recordBeaten=true; playVictorySound();
+          }
+        } else {
+          const elapsed=(Date.now()-levelStartTime)/1000;
+          if(elapsed>=targetTime){ winLevel(); return; }
+        }
+
+        const speed=5+((gameMode==='score'?score:(Date.now()-levelStartTime)/1000))*0.001;
+        // actualizar asteroides y colisiones
+        for(let i=asteroids.length-1;i>=0;i--){
+          const a=asteroids[i];
+          a.x-=speed;
+          const rc=astronaut.size*0.5;
+          let factor=1;
+          if(a.img.src.includes("a6684989a6b4564caa310397c9b120af")){
+            factor=0.6;
+          }
+          const es=a.size*factor;
+          if(
+            astronaut.x-rc < a.x+es &&
+            astronaut.x+rc > a.x-es &&
+            astronaut.y-rc < a.y+es &&
+            astronaut.y+rc > a.y-es
+          ){
+            if(astronaut.shielded){
+              if(extraHearts>0) extraHearts--;
+              else astronaut.shielded=false;
+              asteroids.splice(i,1);
+              continue;
+            } else {
+              createExplosion(astronaut.x,astronaut.y);
+              gameOver();
+              return;
+            }
+          }
+          if(a.x+a.size<0) asteroids.splice(i,1);
+        }
+
+        updatePowerups(speed);
+        if(Math.random()<0.001) createPowerup();
+        if(Math.random() < 0.03 + ((gameMode==='score'?score:(Date.now()-levelStartTime)/1000))*0.0001){
+          createAsteroid();
+        }
+        if(Date.now()- (window.lastTrailTime||0) >50){
+          createTrailParticle(astronaut.x,astronaut.y);
+          window.lastTrailTime=Date.now();
+        }
+      }
+
+      updateParticles();
+
+      stars.forEach(s=>{
+        s.x-=s.speed;
+        if(s.x<0){ s.x=canvas.width; s.y=Math.random()*canvas.height; }
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='white';
+      stars.forEach(s=>{
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.radius, 0, Math.PI*2);
+        ctx.fill();
+      });
+
+      if(['playing','paused'].includes(gameState)){
+        ctx.save();
+        ctx.translate(astronaut.x,astronaut.y);
+        ctx.rotate(rocketAngle);
+        ctx.drawImage(
+          astronautImg,
+          -astronaut.size,
+          -astronaut.size,
+          astronaut.size*2,
+          astronaut.size*2
+        );
+        ctx.restore();
+
+        if(astronaut.shielded){
+          ctx.beginPath();
+          ctx.arc(astronaut.x,astronaut.y,astronaut.size+5,0,Math.PI*2);
+          ctx.strokeStyle='blue';
+          ctx.lineWidth=3;
+          ctx.stroke();
+        }
+
+        asteroids.forEach(a=>{
+          ctx.drawImage(
+            a.img,
+            a.x-a.size,
+            a.y-a.size,
+            a.size*2,
+            a.size*2
+          );
+        });
+
+        powerups.forEach(p=>{
+          ctx.drawImage(
+            shieldImage,
+            p.x-p.size,
+            p.y-p.size,
+            p.size*2,
+            p.size*2
+          );
+        });
+
+        ctx.fillStyle='#0F0';
+        ctx.font='20px Arial';
+        if(gameMode==='score'){
+          ctx.fillText(`Puntuación: ${score}`,10,30);
+          if(config.saveRecord) ctx.fillText(`Mejor: ${highScore}`,10,60);
+        } else {
+          const elapsed=(Date.now()-levelStartTime)/1000;
+          ctx.fillText(`Tu tiempo: ${formatTime(elapsed)}`,10,30);
+          ctx.fillText(`Tiempo a batir: ${formatTime(targetTime)}`,10,60);
+        }
+
+        if(gameState==='paused'){
+          ctx.fillStyle='rgba(0,0,0,0.5)';
+          ctx.fillRect(0,0,canvas.width,canvas.height);
+          ctx.fillStyle='white';
+          ctx.font='40px Arial';
+          ctx.textAlign='center';
+          ctx.fillText('Pausa',canvas.width/2,canvas.height/2);
+          ctx.textAlign='left';
+        }
+
+        // Dibujar corazones extra a la izquierda del botón de pausa
+        const iconSize=40, spacing=5;
+        // botón de pausa a (canvas.width-10-30)
+        let startX=canvas.width-10-30-spacing-iconSize, y=10;
+        for(let i=0;i<extraHearts;i++){
+          ctx.drawImage(heartIcon,startX,y,iconSize,iconSize);
+          startX-=iconSize+spacing;
+        }
+      }
+
+      drawParticles();
+    }
+
+    function gameLoop(){
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updateUI(){
+      if(gameState==='start'){
+        document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+        document.getElementById('mainMenu').style.display='block';
+        pauseButton.style.display='none';
+      }
+      else if(['playing','paused'].includes(gameState)){
+        document.querySelectorAll('.screen').forEach(s=>s.style.display='none');
+        pauseButton.style.display='block';
+      } else {
+        pauseButton.style.display='none';
+      }
+    }
+
+    /* ================= Eventos botones UI ================= */
+    document.getElementById('helpButton').addEventListener('click',()=>{
+      document.getElementById('helpScreen').style.display='block';
+      document.getElementById('mainMenu').style.display='none';
+    });
+    document.getElementById('closeHelp').addEventListener('click',()=>{
+      document.getElementById('helpScreen').style.display='none';
+      document.getElementById('mainMenu').style.display='block';
+    });
+    document.getElementById('playButton').addEventListener('click',()=>{
+      gameMode='score'; startGame();
+    });
+    document.getElementById('levelButton').addEventListener('click',()=>{
+      document.getElementById('mainMenu').style.display='none';
+      document.getElementById('levelInfo').innerHTML=
+        `Nivel actual: ${currentLevel}<br>Próximo objetivo: ${formatTime(getTargetTimeForLevel(currentLevel))}`;
+      document.getElementById('levelMenu').style.display='block';
+    });
+    document.getElementById('levelBackButton').addEventListener('click',()=>{
+      document.getElementById('levelMenu').style.display='none';
+      document.getElementById('mainMenu').style.display='block';
+    });
+    document.getElementById('levelPlayButton').addEventListener('click',()=>{
+      gameMode='niveles';
+      targetTime=getTargetTimeForLevel(currentLevel);
+      startGame();
+    });
+    document.getElementById('menuButton').addEventListener('click',()=>{
+      gameState='start';
+      backgroundMusic.pause();
+      document.getElementById('mainMenu').style.display='block';
+      document.getElementById('gameOverMenu').style.display='none';
+      document.getElementById('winMenu').style.display='none';
+      updateUI();
+    });
+    document.getElementById('retryButton').addEventListener('click',startGame);
+    document.getElementById('winMenuButton').addEventListener('click',()=>{
+      gameState='start';
+      document.getElementById('winMenu').style.display='none';
+      document.getElementById('mainMenu').style.display='block';
+      backgroundMusic.pause();
+      updateUI();
+    });
+    document.getElementById('nextLevelButton').addEventListener('click',()=>{
+      currentLevel++;
+      localStorage.setItem('currentLevel',currentLevel);
+      targetTime=getTargetTimeForLevel(currentLevel);
+      document.getElementById('winMenu').style.display='none';
+      startGame();
+    });
+    document.getElementById('customButton').addEventListener('click',()=>{
+      document.getElementById('mainMenu').style.display='none';
+      document.getElementById('customizationScreen').style.display='block';
+    });
+    document.getElementById('customBackButton').addEventListener('click',()=>{
+      document.getElementById('customizationScreen').style.display='none';
+      document.getElementById('mainMenu').style.display='block';
+    });
+    document.getElementById('configButton').addEventListener('click',()=>{
+      document.getElementById('mainMenu').style.display='none';
+      document.getElementById('configScreen').style.display='block';
+    });
+    document.getElementById('configBackButton').addEventListener('click',()=>{
+      document.getElementById('configScreen').style.display='none';
+      document.getElementById('mainMenu').style.display='block';
+    });
+
+    // Configuración toggles
+    document.getElementById('toggleRecord').addEventListener('click',()=>{
+      config.saveRecord=!config.saveRecord;
+      localStorage.setItem('config_saveRecord',config.saveRecord);
+      if(!config.saveRecord){
+        highScore=0;
+        localStorage.removeItem('highScore');
+        document.getElementById('toggleRecord').textContent='Guardar Récord: OFF';
+      } else {
+        document.getElementById('toggleRecord').textContent='Guardar Récord: ON';
+      }
+    });
+    document.getElementById('toggleFixedRotation').addEventListener('click',()=>{
+      config.fixedRotation=!config.fixedRotation;
+      localStorage.setItem('config_fixedRotation',config.fixedRotation);
+      document.getElementById('toggleFixedRotation').textContent=
+        config.fixedRotation?'Fijar rotación del cohete: ON':'Fijar rotación del cohete: OFF';
+    });
+    document.getElementById('toggleMusic').addEventListener('click',()=>{
+      config.musicActive=!config.musicActive;
+      localStorage.setItem('config_musicActive',config.musicActive);
+      document.getElementById('toggleMusic').textContent=
+        config.musicActive?'Activar música: ON':'Activar música: OFF';
+      if(!config.musicActive){
+        backgroundMusic.pause();
+        backgroundMusic.currentTime=0;
+      } else if(gameState==='playing'){
+        backgroundMusic.play();
+      }
+    });
+
+    // Pause button
+    document.getElementById('pauseButton').addEventListener('click',togglePause);
+
+    // Personalización cohete
+    document.querySelectorAll('.rocket-option').forEach(opt=>{
+      opt.addEventListener('click',()=>{
+        document.querySelectorAll('.rocket-option').forEach(o=>o.classList.remove('selected'));
+        opt.classList.add('selected');
+        astronautImg.src=opt.dataset.src;
+        localStorage.setItem('rocketSkin',opt.dataset.src);
+      });
+    });
+    // Personalización estela
+    document.querySelectorAll('.trail-color-option').forEach(opt=>{
+      opt.addEventListener('click',()=>{
+        document.querySelectorAll('.trail-color-option').forEach(o=>o.classList.remove('selected'));
+        opt.classList.add('selected');
+        trailColor=opt.dataset.color;
+        localStorage.setItem('trailColor',trailColor);
+      });
+    });
+    document.querySelectorAll('.trail-shape-option').forEach(opt=>{
+      opt.addEventListener('click',()=>{
+        document.querySelectorAll('.trail-shape-option').forEach(o=>o.classList.remove('selected'));
+        opt.classList.add('selected');
+        trailShape=opt.dataset.shape;
+        localStorage.setItem('trailShape',trailShape);
+      });
+    });
+
+    gameLoop();
+
+    // Obtener tiempo objetivo por nivel
+    function getTargetTimeForLevel(level){
+      if(level<=10){
+        return [10,15,20,30,40,50,60,75,90,105][level-1];
+      }
+      return getTargetTimeForLevel(10) + 15*(level-10);
+    }
+  </script>
+</body>
+</html>
